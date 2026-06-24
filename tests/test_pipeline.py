@@ -1,5 +1,6 @@
 from pathlib import Path
 import generate_article
+from content_qa import scan_draft
 
 def test_parse_and_save_uses_predetermined_slug(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -37,3 +38,24 @@ def test_draft_frontmatter_has_intent_and_difficulty(tmp_path, monkeypatch):
     content = path.read_text()
     assert 'intent: "informational"' in content
     assert "difficulty: 50" in content
+
+
+def test_qa_flags_roi_claim():
+    draft = "SuperDial reduces prior authorization costs by 60% on average for all clients."
+    warnings = scan_draft(draft)
+    categories = [w["category"] for w in warnings]
+    assert "roi_claim" in categories
+
+
+def test_qa_returns_list_of_dicts():
+    draft = "Revenue cycle automation can help healthcare organizations."
+    warnings = scan_draft(draft)
+    assert isinstance(warnings, list)
+    for w in warnings:
+        assert "category" in w
+        assert "excerpt" in w
+
+
+def test_qa_never_raises_on_empty():
+    warnings = scan_draft("")
+    assert warnings == []
