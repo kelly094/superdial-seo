@@ -1,0 +1,8 @@
+anthropic
+python-dotenv
+requests
+google-ads
+google-api-python-client
+google-auth-oauthlib
+streamlit
+pytest
