@@ -88,7 +88,7 @@ keywords (
     keyword         TEXT NOT NULL UNIQUE,
     target_keyword  TEXT NOT NULL,          -- canonical keyword this article targets (for GSC comparison)
     state           TEXT NOT NULL,          -- selected|drafted|approved|published|refresh_candidate
-    slug            TEXT,
+    slug            TEXT UNIQUE,
     webflow_item_id TEXT,
     score           REAL,
     -- SEO metadata captured at selection time
