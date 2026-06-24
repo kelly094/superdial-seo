@@ -1,6 +1,7 @@
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,11 +12,19 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_db() -> sqlite3.Connection:
+@contextmanager
+def get_db():
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -107,14 +116,13 @@ def mark_published(keyword: str, webflow_item_id: str) -> None:
 def update_tracking_timestamps(slug: str) -> None:
     now = _now()
     with get_db() as conn:
-        row = conn.execute("SELECT tracked_at FROM keywords WHERE slug=?", (slug,)).fetchone()
-        if row and row["tracked_at"] is None:
-            conn.execute(
-                "UPDATE keywords SET tracked_at=?, last_tracked_at=? WHERE slug=?",
-                (now, now, slug),
-            )
-        else:
-            conn.execute("UPDATE keywords SET last_tracked_at=? WHERE slug=?", (now, slug))
+        conn.execute(
+            """UPDATE keywords
+               SET tracked_at = CASE WHEN tracked_at IS NULL THEN ? ELSE tracked_at END,
+                   last_tracked_at = ?
+               WHERE slug = ?""",
+            (now, now, slug),
+        )
 
 
 def is_processed(keyword: str) -> bool:
@@ -130,7 +138,10 @@ def has_slug_collision(slug: str) -> bool:
 
 
 def get_retryable(step: str) -> list:
-    prior = {"generate": "selected", "publish": "approved", "track": "published"}[step]
+    step_to_prior = {"generate": "selected", "publish": "approved", "track": "published"}
+    if step not in step_to_prior:
+        raise ValueError(f"Invalid step '{step}'; must be one of {list(step_to_prior)}")
+    prior = step_to_prior[step]
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM keywords WHERE state=?", (prior,)).fetchall()
         return [dict(r) for r in rows]
@@ -162,11 +173,11 @@ def get_qa_warnings(slug: str, unresolved_only: bool = False) -> list:
         return [dict(r) for r in rows]
 
 
-def resolve_qa_warning(id: int, status: str, note: str = None) -> None:
+def resolve_qa_warning(warning_id: int, status: str, note: str = None) -> None:
     with get_db() as conn:
         conn.execute(
             "UPDATE qa_warnings SET resolution_status=?, reviewer_note=?, reviewed_at=? WHERE id=?",
-            (status, note, _now(), id),
+            (status, note, _now(), warning_id),
         )
 
 
