@@ -10,7 +10,6 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-import publish_webflow
 import state
 
 state.init_db()
@@ -402,7 +401,7 @@ st.markdown(f"""
 <div class="metric-bar">
   <div class="metric-card m1">
     <div class="metric-value">{n_published}</div>
-    <div class="metric-label">Published</div>
+    <div class="metric-label">Ready in Webflow</div>
   </div>
   <div class="metric-card m2">
     <div class="metric-value">{n_drafted}</div>
@@ -466,15 +465,7 @@ if st.session_state.page == "queue":
                     st.session_state.edit_draft_text = ""
                     st.rerun()
         else:
-            can_publish = art_state == "approved"
-            if can_approve:
-                cols = [1, 3, 1.5, 1.5]
-            elif can_publish:
-                cols = [1, 2.5, 1.5, 2]
-            elif can_edit:
-                cols = [1, 4.5, 1.5]
-            else:
-                cols = [1, 7]
+            cols = [1, 3, 1.5, 1.5] if can_approve else ([1, 4.5, 1.5] if can_edit else [1, 7])
             btn_cols = st.columns(cols)
             with btn_cols[0]:
                 if st.button("← Back", key="back_btn"):
@@ -494,17 +485,6 @@ if st.session_state.page == "queue":
                         st.session_state.reviewing_slug = None
                         st.session_state.active_qa_warning = None
                         st.rerun()
-            if can_publish:
-                with btn_cols[3]:
-                    if st.button("Ready in Webflow", type="primary", use_container_width=True, key="publish_btn"):
-                        try:
-                            webflow_id = publish_webflow.publish_draft_and_return_id(draft_path)
-                            state.mark_published(kw["keyword"], webflow_item_id=webflow_id)
-                            st.session_state.reviewing_slug = None
-                            st.session_state.active_qa_warning = None
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Webflow publish failed: {e}")
 
         st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
@@ -721,14 +701,14 @@ mark#qa-active {
             )
 
         # ── Published ──
-        st.markdown('<div class="section-head" style="margin-top:1.5rem">Published</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-head" style="margin-top:1.5rem">Ready in Webflow</div>', unsafe_allow_html=True)
         if published:
             for kw in published:
                 render_kw_card(kw, "View →", f"open_{kw['slug']}")
         else:
             st.markdown(
                 '<p style="font-size:0.82rem;color:#9990A4;margin:0 0 1.25rem">'
-                + ("No matches." if search else "Nothing published yet.")
+                + ("No matches." if search else "Nothing ready in Webflow yet.")
                 + "</p>",
                 unsafe_allow_html=True,
             )
