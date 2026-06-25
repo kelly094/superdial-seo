@@ -39,7 +39,7 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("Published Articles", total_published)
 col2.metric("Drafts Pending Review", pending_review)
 col3.metric("Awaiting Approval", pending_approval)
-col4.metric("Avg GSC Position", f"{avg_pos:.1f}" if avg_pos else "—")
+col4.metric("Avg GSC Position", f"{avg_pos:.1f}" if avg_pos is not None else "—")
 
 st.divider()
 
@@ -115,6 +115,7 @@ else:
         latest[["slug", "target_keyword", "position", "impressions", "clicks", "Δ position"]],
         use_container_width=True,
     )
+    st.caption("Δ position: positive = improved rank (lower number). Blank = no prior week data.")
 
     # Position over time chart
     st.subheader("Average Position Over Time")
