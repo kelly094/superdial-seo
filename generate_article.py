@@ -12,11 +12,14 @@ import argparse
 import csv
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 import anthropic
 from dotenv import load_dotenv
 
+import research
+from company_context import COMPANY_CONTEXT
 from utils import slugify
 
 load_dotenv()
@@ -27,16 +30,31 @@ DEFAULT_MIN_VOLUME = 100
 KEYWORDS_FILE = "keywords.csv"
 DRAFTS_DIR = Path("drafts")
 
-SYSTEM_PROMPT = """You are a healthcare technology content writer for SuperDial, a voice AI company that automates payer calls for healthcare providers — things like benefits verification, prior authorization follow-ups, claim status checks, and denial management.
+SYSTEM_PROMPT = """You are a healthcare technology content writer for SuperDial. Here is the company context:
 
-Your audience is healthcare revenue cycle professionals: RCM directors, billing managers, and practice administrators. They are practical, data-driven, and skeptical of vendor fluff. Write to be genuinely useful to them.
+{company_context}
+
+Your audience is SuperDial's target customers: RCM directors, billing managers, practice administrators, and revenue cycle VPs at provider groups and billing companies. They are practical, data-driven, and skeptical of vendor fluff. Write to be genuinely useful to them.
+
+Where relevant, you may reference SuperDial's proof points and named customers — but follow these rules exactly:
+- SuperDial-specific metrics (90% reduction in payer call time, 4x throughput, 67% cost savings, 5M+ interactions) MUST be attributed to SuperDial, not presented as general industry figures. Never cite them as uncited facts. Vary the phrasing — do not repeat the same construction twice. Approved forms include: "SuperDial customers report...", "Organizations using SuperDial have documented...", "SuperDial data shows...", "Billing teams that deploy SuperDial see...", "In deployments with SuperDial, teams have achieved...", "SuperDial's customer data shows..." — choose whichever fits the sentence naturally and rotate across them.
+- Named customers (Omega Healthcare, Asembia, Guardian, GetixHealth, Henry Schein ONE, Riverside Healthcare) may be cited as examples, but only where natural.
+- Only include SuperDial proof points if the keyword/topic makes them genuinely relevant. Never force them.
 
 Writing style:
 - Clear, direct, informative — no marketing language or hype
 - Use concrete numbers, stats, and named organizations where possible
 - Structure content for easy scanning (H2s, short paragraphs)
 - Educational tone — the goal is to be cited by LLMs and referenced in search
-- 800–1,200 words for the body"""
+- 800–1,200 words for the body
+
+Citations — this is mandatory:
+- EVERY specific statistic, benchmark, or data claim must have an inline citation, e.g. (CAQH, 2025) or (HFMA, 2024). No exceptions.
+- If you cannot find a 2024+ source for a specific number, do NOT include that number. Write around it (e.g. "industry estimates suggest" without citing a figure) rather than stating an uncited statistic.
+- Only cite sources from 2024 or later — never cite data from 2023 or earlier.
+- Preferred primary sources: CAQH Index, HFMA, CMS, AMA, Becker's Hospital Review, Advisory Board, Modern Healthcare
+- Aim for at least 3 distinct sources per article, not just one repeated source.
+- End the article with a ## Sources section listing each cited source as a bullet with full URL where available."""
 
 ARTICLE_PROMPT = """Write a comprehensive SEO article for the keyword: "{keyword}"
 
@@ -52,11 +70,14 @@ Writing guidance:
 - intent=informational: write a clear explainer, 800–1,000 words, define concepts, \
   use H2 sections for easy scanning
 
+The current year is {year}. Use this in titles and anywhere you reference "this year" or recent dates.
+
 Return the article in this exact format:
 
 TITLE: [SEO-optimized title, under 60 characters]
 META: [Meta description, 140–155 characters]
 SLUG: [URL slug, lowercase, hyphens only]
+ALT: [Alt text for the blog header image: describe a professional healthcare billing or RCM workplace scene relevant to this article — people collaborating at monitors, reviewing dashboards, etc. End with "SuperDial Blog".]
 ---
 [Full article body in markdown, starting with the H1 title, then H2 sections]"""
 
@@ -84,14 +105,18 @@ def generate_draft(client, keyword_row: dict) -> str:
         difficulty=float(keyword_row.get("difficulty", 50)),
         intent=keyword_row.get("intent", "informational"),
         cpc=float(keyword_row.get("cpc") or keyword_row.get("low_cpc", 0)),
+        year=date.today().year,
     )
+    context = research.fetch_research_context(keyword_row["keyword"])
+    if context:
+        prompt = prompt + "\n\n" + context
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
+        max_tokens=4096,
+        system=SYSTEM_PROMPT.format(company_context=COMPANY_CONTEXT),
         messages=[{"role": "user", "content": prompt}],
     )
-    return message.content[0].text
+    return "".join(b.text for b in message.content if b.type == "text")
 
 
 def parse_and_save(raw: str, keyword_row: dict, slug: str = None) -> tuple:
@@ -100,11 +125,14 @@ def parse_and_save(raw: str, keyword_row: dict, slug: str = None) -> tuple:
     body_lines = []
     in_body = False
 
+    alt = ""
     for line in lines:
         if line.startswith("TITLE:"):
             title = line.removeprefix("TITLE:").strip()
         elif line.startswith("META:"):
             meta = line.removeprefix("META:").strip()
+        elif line.startswith("ALT:"):
+            alt = line.removeprefix("ALT:").strip()
         elif line.strip() == "---":
             in_body = True
         elif in_body:
@@ -121,6 +149,7 @@ def parse_and_save(raw: str, keyword_row: dict, slug: str = None) -> tuple:
         f'---\n'
         f'title: "{title}"\n'
         f'meta_description: "{meta}"\n'
+        f'alt_text: "{alt}"\n'
         f'slug: "{slug}"\n'
         f'keyword: "{keyword_row["keyword"]}"\n'
         f'volume: {keyword_row.get("volume") or keyword_row.get("avg_monthly_searches", 0)}\n'

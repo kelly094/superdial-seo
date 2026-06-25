@@ -86,16 +86,20 @@ def step_generate(dry_run=False, top_n=None):
         slug = kw["slug"]
         print(f"  [{i}/{len(candidates)}] '{keyword}'...", end=" ", flush=True)
 
-        if state.has_slug_collision(slug) and not Path(f"drafts/{slug}.md").exists():
-            print(f"SKIP (slug collision)")
+        if Path(f"drafts/{slug}.md").exists():
+            print(f"SKIP (draft already exists)")
             continue
 
         try:
             raw = generate_article.generate_draft(client, kw)
             path, title = generate_article.parse_and_save(raw, kw, slug=slug)
 
-            # QA scan
-            warnings = content_qa.scan_draft(path.read_text())
+            # QA scan — body compliance + SEO field checks
+            draft_text = path.read_text()
+            warnings = (
+                content_qa.scan_draft(draft_text)
+                + content_qa.scan_seo_fields(draft_text, keyword=keyword)
+            )
             if warnings:
                 state.save_qa_warnings(slug, warnings)
                 metrics["qa_warnings_total"] += len(warnings)

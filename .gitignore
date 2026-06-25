@@ -1,0 +1,26 @@
+# Secrets — never commit these
+.env
+.streamlit/secrets.toml
+client_secret.json
+google-ads.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+venv/
+.venv/
+
+# macOS
+.DS_Store
+
+# Internal docs
+*.pdf
+
+# Superpowers
+.superpowers/
+
+# Data and drafts ARE intentionally tracked so Streamlit Cloud can read them.
+# Run sync.sh after each pipeline run to push updates.

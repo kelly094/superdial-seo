@@ -6,6 +6,7 @@ import sys
 import anthropic
 import requests
 import state
+from company_context import COMPANY_CONTEXT
 from dotenv import load_dotenv
 from utils import slugify
 
@@ -18,22 +19,30 @@ DATAFORSEO_PASSWORD = os.getenv("DATAFORSEO_PASSWORD")
 _DFS_AUTH = lambda: (DATAFORSEO_LOGIN, DATAFORSEO_PASSWORD)
 
 IDEATION_PROMPT = """\
-You are a keyword research specialist for SuperDial, a voice AI company that automates \
-payer calls for healthcare providers — benefits verification, prior authorization follow-ups, \
-claim status checks, and denial management.
+You are a keyword research specialist working for SuperDial. Here is the company context:
 
-Generate 30 keyword ideas that healthcare revenue cycle professionals (RCM directors, billing \
-managers, practice administrators) would search when looking for solutions to their problems.
+{company_context}
+
+Generate 30 keyword ideas that SuperDial's target customers (RCM directors, billing managers,
+practice administrators at provider groups and billing companies) would actually type into
+Google when researching their problems or looking for solutions.
+
+CRITICAL: Prefer SHORT phrases (2-4 words) that real people search on Google. Avoid overly \
+specific jargon strings that only appear in vendor materials. Think about what a billing manager \
+who is frustrated with insurance calls would type, not how a software vendor would describe \
+their product. Good examples: "prior authorization software", "medical billing automation", \
+"revenue cycle management". Bad examples: "voice AI healthcare revenue cycle automation platform", \
+"payer portal benefits verification workflow".
 
 For each keyword, classify business relevance:
 - HIGH: directly addresses SuperDial's core use cases (prior auth, benefits verification, \
-claim status, denial management, RCM automation, voice AI for healthcare)
+claim status, denial management, RCM automation, payer call automation, credentialing)
 - MEDIUM: adjacent topics that attract the target audience (revenue cycle trends, payer \
-relations, healthcare billing challenges, insurance workflow)
-- LOW: general healthcare topics with no connection to RCM automation
+relations, healthcare billing challenges, insurance workflow, billing company operations)
+- LOW: general healthcare topics with no connection to RCM or payer communications
 
 Return valid JSON only — no prose, no markdown fences:
-{"keywords": [{"keyword": "prior authorization automation software", "relevance": "HIGH"}, ...]}"""
+{{"keywords": [{{"keyword": "prior authorization software", "relevance": "HIGH"}}, ...]}}"""
 
 
 def filter_by_relevance(keywords: list) -> list:
@@ -45,7 +54,7 @@ def claude_ideation() -> list:
     msg = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2000,
-        messages=[{"role": "user", "content": IDEATION_PROMPT}],
+        messages=[{"role": "user", "content": IDEATION_PROMPT.format(company_context=COMPANY_CONTEXT)}],
     )
     raw = msg.content[0].text.strip()
     data = json.loads(raw)
@@ -81,7 +90,8 @@ def dataforseo_validate(keywords: list) -> list:
     diff_resp.raise_for_status()
     diff_map = {
         item["keyword"]: item
-        for item in (diff_resp.json()["tasks"][0].get("result") or [])
+        for result_set in (diff_resp.json()["tasks"][0].get("result") or [])
+        for item in (result_set.get("items") or [])
     }
 
     # --- Search intent ---
@@ -93,7 +103,8 @@ def dataforseo_validate(keywords: list) -> list:
     intent_resp.raise_for_status()
     intent_map = {
         item["keyword"]: item
-        for item in (intent_resp.json()["tasks"][0].get("result") or [])
+        for result_set in (intent_resp.json()["tasks"][0].get("result") or [])
+        for item in (result_set.get("items") or [])
     }
 
     validated = []
@@ -115,7 +126,7 @@ def dataforseo_validate(keywords: list) -> list:
             "volume": float(volume),
             "difficulty": float(difficulty),
             "cpc": float(vol_item.get("cpc") or 0),
-            "intent": (intent_item.get("search_intent") or "informational").lower(),
+            "intent": (intent_item.get("keyword_intent", {}).get("label") or "informational").lower(),
         })
 
     print(f"  Validation: {len(validated)}/{len(keyword_strings)} keywords have full data")

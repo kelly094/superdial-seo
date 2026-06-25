@@ -156,10 +156,17 @@ def get_all_published_slugs() -> list:
 def save_qa_warnings(slug: str, warnings: list) -> None:
     now = _now()
     with get_db() as conn:
-        conn.executemany(
-            "INSERT INTO qa_warnings (slug, category, excerpt, created_at) VALUES (?, ?, ?, ?)",
-            [(slug, w["category"], w["excerpt"], now) for w in warnings],
-        )
+        for w in warnings:
+            # Skip exact duplicates — same slug+category+excerpt already unresolved
+            exists = conn.execute(
+                "SELECT 1 FROM qa_warnings WHERE slug=? AND category=? AND excerpt=? AND resolution_status IS NULL",
+                (slug, w["category"], w["excerpt"]),
+            ).fetchone()
+            if not exists:
+                conn.execute(
+                    "INSERT INTO qa_warnings (slug, category, excerpt, created_at) VALUES (?, ?, ?, ?)",
+                    (slug, w["category"], w["excerpt"], now),
+                )
 
 
 def get_qa_warnings(slug: str, unresolved_only: bool = False) -> list:

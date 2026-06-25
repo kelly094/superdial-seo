@@ -11,6 +11,7 @@ import argparse
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -35,10 +36,13 @@ HEADERS = {
 # ── Field name mapping ──────────────────────────────────────────────────────
 # Run `python publish_webflow.py --list-fields` to see your collection's
 # exact field slugs, then update these to match.
-FIELD_NAME = "name"           # item title / name field (always required)
-FIELD_SLUG = "slug"           # URL slug field
-FIELD_BODY = "post-body"      # rich text / body field — UPDATE if different
-FIELD_META = "meta-description"  # meta description field — UPDATE if different or remove
+FIELD_NAME       = "name"              # item title (required)
+FIELD_SLUG       = "slug"              # URL slug (required)
+FIELD_BODY       = "post-body"         # rich text body
+FIELD_META       = "meta-description"  # meta description (required)
+FIELD_META_TITLE = "meta-title-2"      # meta title (required)
+FIELD_ALT        = "blog-image-alt-text"
+FIELD_PUB_DATE   = "publication-date"
 # ────────────────────────────────────────────────────────────────────────────
 
 
@@ -77,19 +81,25 @@ def publish_draft(path, dry_run=False):
     fm, body = parse_frontmatter(path)
 
     title = fm.get("title", "")
-    slug = fm.get("slug", "")
-    meta = fm.get("meta_description", "")
+    slug  = fm.get("slug", "")
+    meta  = fm.get("meta_description", "")
+    alt   = fm.get("alt_text", "")
+    pub_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z")
 
     if not title:
         sys.exit(f"No title found in frontmatter of {path}")
 
     field_data = {
-        FIELD_NAME: title,
-        FIELD_SLUG: slug,
-        FIELD_BODY: body,
+        FIELD_NAME:       title,
+        FIELD_SLUG:       slug,
+        FIELD_BODY:       body,
+        FIELD_META_TITLE: title,
+        FIELD_PUB_DATE:   pub_date,
     }
-    if meta and FIELD_META:
+    if meta:
         field_data[FIELD_META] = meta
+    if alt:
+        field_data[FIELD_ALT] = alt
 
     payload = {
         "isArchived": False,
@@ -104,7 +114,7 @@ def publish_draft(path, dry_run=False):
     url = f"{BASE_URL}/collections/{WEBFLOW_COLLECTION_ID}/items"
     r = requests.post(url, headers=HEADERS, json=payload)
 
-    if r.status_code in (200, 201):
+    if r.status_code in (200, 201, 202):
         item_id = r.json().get("id", "")
         print(f"Created (unpublished): '{title}' — item ID: {item_id}")
     else:
@@ -152,20 +162,30 @@ def publish_draft_and_return_id(path) -> str:
     """Publish a single draft and return the Webflow item ID. Raises on failure."""
     fm, body = parse_frontmatter(path)
     title = fm.get("title", "")
-    slug = fm.get("slug", "")
-    meta = fm.get("meta_description", "")
+    slug  = fm.get("slug", "")
+    meta  = fm.get("meta_description", "")
+    alt   = fm.get("alt_text", "")
+    pub_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000Z")
 
     if not title:
         raise ValueError(f"No title in frontmatter of {path}")
 
-    field_data = {FIELD_NAME: title, FIELD_SLUG: slug, FIELD_BODY: body}
-    if meta and FIELD_META:
+    field_data = {
+        FIELD_NAME:       title,
+        FIELD_SLUG:       slug,
+        FIELD_BODY:       body,
+        FIELD_META_TITLE: title,
+        FIELD_PUB_DATE:   pub_date,
+    }
+    if meta:
         field_data[FIELD_META] = meta
+    if alt:
+        field_data[FIELD_ALT] = alt
 
     payload = {"isArchived": False, "isDraft": True, "fieldData": field_data}
     url = f"{BASE_URL}/collections/{WEBFLOW_COLLECTION_ID}/items"
     r = requests.post(url, headers=HEADERS, json=payload)
 
-    if r.status_code in (200, 201):
+    if r.status_code in (200, 201, 202):
         return r.json().get("id", "")
     raise RuntimeError(f"Webflow error {r.status_code}: {r.text}")
