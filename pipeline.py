@@ -82,10 +82,10 @@ def step_generate(dry_run=False, top_n=None):
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    for kw in candidates:
+    for i, kw in enumerate(candidates, 1):
         keyword = kw["keyword"]
         slug = kw["slug"]
-        print(f"  [{candidates.index(kw) + 1}/{len(candidates)}] '{keyword}'...", end=" ", flush=True)
+        print(f"  [{i}/{len(candidates)}] '{keyword}'...", end=" ", flush=True)
 
         if state.has_slug_collision(slug) and not Path(f"drafts/{slug}.md").exists():
             print(f"SKIP (slug collision)")
