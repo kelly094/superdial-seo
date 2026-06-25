@@ -117,13 +117,24 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
     padding: 10px 16px !important;
     gap: 0 !important;
+    align-items: center !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {
     gap: 0 !important;
 }
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="column"] {
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
 div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] p {
     margin: 0 !important;
-    line-height: 1.4 !important;
+    line-height: 1.3 !important;
 }
 
 /* Keyword name */
