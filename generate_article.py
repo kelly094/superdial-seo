@@ -56,6 +56,77 @@ Citations — this is mandatory:
 - Aim for at least 3 distinct sources per article, not just one repeated source.
 - End the article with a ## Sources section listing each cited source as a bullet with full URL where available."""
 
+def detect_content_format(keyword: str) -> str:
+    """Map a keyword to the most appropriate content format."""
+    kw = keyword.lower()
+    if any(kw.startswith(p) for p in ("what is", "what are", "what does")):
+        return "explainer"
+    if any(p in kw for p in ("vs ", " vs ", " versus ", " or ")):
+        return "comparison"
+    if any(p in kw for p in ("how to", "how do", "steps to", "guide to")):
+        return "how_to"
+    if any(p in kw for p in ("best practices", "checklist", "tips", "strategies")):
+        return "best_practices"
+    if any(p in kw for p in ("statistics", "stats", "benchmarks", "data", "trends", "report")):
+        return "data_roundup"
+    if any(p in kw for p in ("challenges", "problems", "issues", "mistakes", "errors")):
+        return "problem_solution"
+    if any(p in kw for p in ("cost", "pricing", "roi", "savings", "reduce")):
+        return "roi_analysis"
+    # commercial/transactional default
+    return "buyers_guide"
+
+
+_FORMAT_GUIDANCE = {
+    "buyers_guide": """\
+Format: Buyer's guide, 1,000–1,200 words.
+Structure: open with the core problem this software solves, cover 3–4 categories/approaches \
+with trade-offs, include an evaluation criteria section, close with a decision framework.
+Title pattern: "[Keyword]: [Year] Buyer's Guide" or "Best [Keyword]: How to Evaluate Your Options in [Year]".""",
+
+    "explainer": """\
+Format: Authoritative explainer, 800–1,000 words.
+Structure: define the concept clearly in the first paragraph, explain why it matters to RCM teams, \
+break down how it works in practice, cover common misconceptions, close with what to do with this knowledge.
+Title pattern: "What Is [Concept]? A Plain-English Guide for RCM Teams" or "[Concept], Explained".""",
+
+    "comparison": """\
+Format: Head-to-head comparison, 900–1,100 words.
+Structure: brief intro on why the distinction matters, define each option clearly, \
+compare across 4–5 meaningful dimensions (a comparison table helps), state clearly which fits which scenario.
+Title pattern: "[Option A] vs [Option B]: What RCM Teams Need to Know in [Year]".""",
+
+    "how_to": """\
+Format: Step-by-step guide, 900–1,100 words.
+Structure: open with the outcome the reader wants, list prerequisites, walk through 5–7 numbered steps \
+with specific actions (not vague advice), include a common mistakes section, close with how to measure success.
+Title pattern: "How to [Goal]: A Step-by-Step Guide for [Year]".""",
+
+    "best_practices": """\
+Format: Best practices / checklist article, 900–1,100 words.
+Structure: brief intro on why this matters now, 6–8 distinct practices each with a short explanation \
+and a concrete example or metric, close with an implementation priority framework.
+Title pattern: "[Topic] Best Practices for [Year]: What High-Performing RCM Teams Do Differently".""",
+
+    "data_roundup": """\
+Format: Data and trends roundup, 800–1,000 words.
+Structure: open with the single most striking stat, group findings into 3–4 themes, \
+contextualize each number (what it means for RCM operations), close with what the data suggests teams should do.
+Every stat MUST have an inline citation. Title pattern: "[Topic] Statistics for [Year]: Key Benchmarks and Trends".""",
+
+    "problem_solution": """\
+Format: Problem/solution article, 900–1,100 words.
+Structure: open by naming the pain clearly (make the reader feel seen), explain root causes (not just symptoms), \
+walk through 4–5 solutions in order of impact, include real-world examples or outcomes where possible.
+Title pattern: "[Problem] in [Year]: Causes, Costs, and How to Fix It".""",
+
+    "roi_analysis": """\
+Format: ROI / cost analysis, 900–1,100 words.
+Structure: quantify the problem first (what does inaction cost?), break down where costs actually come from, \
+show what improvement looks like with specific metrics, include a simple framework for calculating ROI.
+Title pattern: "The Real Cost of [Topic] — And How to Reduce It in [Year]".""",
+}
+
 ARTICLE_PROMPT = """Write a comprehensive SEO article for the keyword: "{keyword}"
 
 Search data context:
@@ -63,14 +134,18 @@ Search data context:
 - Keyword difficulty: {difficulty:.0f}/100
 - Search intent: {intent}
 - CPC: ${cpc:.2f}
+- Detected content format: {content_format}
 
-Writing guidance:
-- intent=commercial or transactional: write a practical buyer's guide, 1,000–1,200 words, \
-  compare approaches, include evaluation criteria
-- intent=informational: write a clear explainer, 800–1,000 words, define concepts, \
-  use H2 sections for easy scanning
+Content format guidance:
+{format_guidance}
 
-The current year is {year}. Use this in titles and anywhere you reference "this year" or recent dates.
+Timeliness — this is important for SEO:
+- The current year is {year}. Reference it naturally in the title, intro, and anywhere data is cited.
+- Open with a timely hook: a recent industry shift, a new regulation, a benchmark that changed, \
+  or a trend that makes this topic urgent right now.
+- Prefer {year} and {prev_year} data. If a source is older, note it or omit the figure.
+- Where relevant, reference what has changed recently (e.g. CMS rule updates, CAQH index findings, \
+  payer behavior shifts post-COVID) to signal freshness to both readers and search engines.
 
 Return the article in this exact format:
 
@@ -99,13 +174,19 @@ def load_keywords(min_volume, top_n):
 
 
 def generate_draft(client, keyword_row: dict) -> str:
+    keyword = keyword_row["keyword"]
+    fmt = detect_content_format(keyword)
+    today = date.today()
     prompt = ARTICLE_PROMPT.format(
-        keyword=keyword_row["keyword"],
+        keyword=keyword,
         volume=float(keyword_row.get("volume") or keyword_row.get("avg_monthly_searches", 0)),
         difficulty=float(keyword_row.get("difficulty", 50)),
         intent=keyword_row.get("intent", "informational"),
         cpc=float(keyword_row.get("cpc") or keyword_row.get("low_cpc", 0)),
-        year=date.today().year,
+        content_format=fmt,
+        format_guidance=_FORMAT_GUIDANCE[fmt],
+        year=today.year,
+        prev_year=today.year - 1,
     )
     context = research.fetch_research_context(keyword_row["keyword"])
     if context:
