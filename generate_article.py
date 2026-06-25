@@ -57,7 +57,8 @@ Citations — this is mandatory:
 - End the article with a ## Sources section listing each cited source as a bullet with full URL where available."""
 
 _AMBIGUOUS_FORMATS = [
-    "buyers_guide", "comparison", "roi_analysis", "problem_solution", "best_practices"
+    "buyers_guide", "comparison", "roi_analysis", "problem_solution",
+    "best_practices", "explainer", "how_to", "data_roundup",
 ]
 
 
