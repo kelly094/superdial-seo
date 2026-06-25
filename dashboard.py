@@ -43,14 +43,12 @@ st.markdown("""
     padding: 0 0.5rem; margin-bottom: 1.5rem;
 }
 
-/* Sidebar nav buttons (inactive) */
+/* Sidebar nav buttons */
 [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    color: #9487C2 !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
+    color: #FFFFFF !important;
     padding: 0.48rem 0.85rem !important;
     border-radius: 6px !important;
     font-size: 0.875rem !important;
@@ -59,22 +57,22 @@ st.markdown("""
     margin-bottom: 2px;
     line-height: 1.4 !important;
     transition: background 0.12s, color 0.12s !important;
+    /* left-align text inside button */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] p,
+[data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"] div {
+    text-align: left !important;
+    justify-content: flex-start !important;
+    margin: 0 !important;
 }
 [data-testid="stSidebar"] button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(148,135,194,0.15) !important;
     color: #C8BEE8 !important;
 }
-
-/* Sidebar active item — sage green highlight on dark purple */
-.sb-nav-active {
-    background: rgba(173,219,164,0.14);
-    border-radius: 6px;
-    padding: 0.48rem 0.85rem;
-    margin-bottom: 2px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #ADDBA4;
-}
+/* Active state injected dynamically via .nav-active-style below */
 
 /* Sidebar mini-stats */
 .sb-stats { font-size: 0.78rem; padding: 0 0.5rem; }
@@ -349,22 +347,31 @@ with state.get_db() as conn:
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 
-NAV = [("queue", "Review Queue"), ("keywords", "Keywords"), ("rankings", "Rankings"), ("runs", "Run History")]
+NAV = [("queue", "Overview"), ("keywords", "Keywords"), ("rankings", "Rankings"), ("runs", "Run History")]
 
 with st.sidebar:
     st.markdown('<div class="sb-brand">SuperDial SEO</div>', unsafe_allow_html=True)
 
+    # Inject active style by position — sidebar: brand(1), nav buttons(2-5)
+    active_nth = [k for k, _ in NAV].index(st.session_state.page) + 2
+    st.markdown(f"""
+<style>
+[data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] > div:nth-child({active_nth}) button {{
+    color: #C4B8E8 !important;
+    font-weight: 600 !important;
+    background: rgba(196,184,232,0.15) !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
     for key, label in NAV:
-        if st.session_state.page == key:
-            st.markdown(f'<div class="sb-nav-active">{label}</div>', unsafe_allow_html=True)
-        else:
-            if st.button(label, key=f"nav_{key}", use_container_width=True):
-                st.session_state.page = key
-                st.session_state.reviewing_slug = None
-                st.session_state.active_qa_warning = None
-                st.session_state.edit_mode = False
-                st.session_state.edit_draft_text = ""
-                st.rerun()
+        if st.button(label, key=f"nav_{key}", use_container_width=True):
+            st.session_state.page = key
+            st.session_state.reviewing_slug = None
+            st.session_state.active_qa_warning = None
+            st.session_state.edit_mode = False
+            st.session_state.edit_draft_text = ""
+            st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
