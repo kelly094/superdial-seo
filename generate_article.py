@@ -56,8 +56,18 @@ Citations — this is mandatory:
 - Aim for at least 3 distinct sources per article, not just one repeated source.
 - End the article with a ## Sources section listing each cited source as a bullet with full URL where available."""
 
-def detect_content_format(keyword: str) -> str:
-    """Map a keyword to the most appropriate content format."""
+_AMBIGUOUS_FORMATS = [
+    "buyers_guide", "comparison", "roi_analysis", "problem_solution", "best_practices"
+]
+
+
+def detect_content_format(keyword: str, avoid_formats: list = None) -> str:
+    """Map a keyword to the most appropriate content format.
+
+    For ambiguous keywords, picks the least-used format from _AMBIGUOUS_FORMATS
+    to ensure variety across a batch. Pass avoid_formats as the list of formats
+    already used in the current run (plus existing drafts).
+    """
     kw = keyword.lower()
     if any(kw.startswith(p) for p in ("what is", "what are", "what does")):
         return "explainer"
@@ -73,10 +83,10 @@ def detect_content_format(keyword: str) -> str:
         return "problem_solution"
     if any(p in kw for p in ("cost", "pricing", "roi", "savings", "reduce")):
         return "roi_analysis"
-    if any(p in kw for p in ("software", " tool", " platform", " solution", " system")):
-        return "comparison"
-    # commercial/transactional default
-    return "buyers_guide"
+    # Ambiguous keyword — pick least-used format from the pool
+    from collections import Counter
+    counts = Counter(avoid_formats or [])
+    return min(_AMBIGUOUS_FORMATS, key=lambda f: counts.get(f, 0))
 
 
 _FORMAT_GUIDANCE = {
@@ -175,9 +185,10 @@ def load_keywords(min_volume, top_n):
     return rows
 
 
-def generate_draft(client, keyword_row: dict) -> str:
+def generate_draft(client, keyword_row: dict, avoid_formats: list = None) -> tuple:
+    """Generate a draft. Returns (raw_text, fmt) so callers can track format variety."""
     keyword = keyword_row["keyword"]
-    fmt = detect_content_format(keyword)
+    fmt = detect_content_format(keyword, avoid_formats=avoid_formats)
     today = date.today()
     prompt = ARTICLE_PROMPT.format(
         keyword=keyword,
@@ -199,7 +210,8 @@ def generate_draft(client, keyword_row: dict) -> str:
         system=SYSTEM_PROMPT.format(company_context=COMPANY_CONTEXT),
         messages=[{"role": "user", "content": prompt}],
     )
-    return "".join(b.text for b in message.content if b.type == "text")
+    raw = "".join(b.text for b in message.content if b.type == "text")
+    return raw, fmt
 
 
 def parse_and_save(raw: str, keyword_row: dict, slug: str = None) -> tuple:
@@ -261,13 +273,19 @@ def main():
     print(f"Generating articles for {len(keywords)} keyword(s)...\n")
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
+    used_formats = [
+        detect_content_format(p.stem.replace("-", " "))
+        for p in DRAFTS_DIR.glob("*.md")
+    ]
+
     for i, row in enumerate(keywords, 1):
         kw = row["keyword"]
         vol = int(row["avg_monthly_searches"])
         print(f"[{i}/{len(keywords)}] '{kw}' ({vol:,} searches/mo)...", end=" ", flush=True)
 
         try:
-            raw = generate_draft(client, row)
+            raw, fmt = generate_draft(client, row, avoid_formats=used_formats)
+            used_formats.append(fmt)
             path, title = parse_and_save(raw, row)
             print(f"saved → {path}")
         except Exception as e:

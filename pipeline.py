@@ -81,6 +81,12 @@ def step_generate(dry_run=False, top_n=None):
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+    # Seed used_formats from existing drafts so new articles complement what's already there
+    used_formats = [
+        generate_article.detect_content_format(p.stem.replace("-", " "))
+        for p in Path("drafts").glob("*.md")
+    ]
+
     for i, kw in enumerate(candidates, 1):
         keyword = kw["keyword"]
         slug = kw["slug"]
@@ -91,7 +97,8 @@ def step_generate(dry_run=False, top_n=None):
             continue
 
         try:
-            raw = generate_article.generate_draft(client, kw)
+            raw, fmt = generate_article.generate_draft(client, kw, avoid_formats=used_formats)
+            used_formats.append(fmt)
             path, title = generate_article.parse_and_save(raw, kw, slug=slug)
 
             # QA scan — body compliance + SEO field checks
