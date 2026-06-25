@@ -115,25 +115,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     margin-bottom: 8px;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-    padding: 12px 16px !important;
+    padding: 10px 16px !important;
     gap: 0 !important;
-    align-items: center !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {
     gap: 0 !important;
 }
-div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="column"] {
-    display: flex !important;
-    align-items: center !important;
-    padding: 0 !important;
-}
-div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] {
-    margin: 0 !important;
-    padding: 0 !important;
-}
 div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] p {
     margin: 0 !important;
-    line-height: 1.3 !important;
 }
 
 /* Keyword name */
@@ -674,8 +663,10 @@ mark#qa-active {
                 col_info, col_btn = st.columns([5, 1], gap="small", vertical_alignment="center")
                 with col_info:
                     st.markdown(
+                        f'<div style="padding:4px 0">'
                         f'<p class="kw-name">{kw["keyword"]}</p>'
-                        f'<div class="chips">{vol_chip}{diff_chip}{int_chip}{warn_chip}</div>',
+                        f'<div class="chips">{vol_chip}{diff_chip}{int_chip}{warn_chip}</div>'
+                        f'</div>',
                         unsafe_allow_html=True,
                     )
                 with col_btn:
