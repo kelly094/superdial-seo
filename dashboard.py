@@ -401,7 +401,7 @@ st.markdown(f"""
 <div class="metric-bar">
   <div class="metric-card m1">
     <div class="metric-value">{n_published}</div>
-    <div class="metric-label">Ready in Webflow</div>
+    <div class="metric-label">Published</div>
   </div>
   <div class="metric-card m2">
     <div class="metric-value">{n_drafted}</div>
@@ -701,14 +701,14 @@ mark#qa-active {
             )
 
         # ── Published ──
-        st.markdown('<div class="section-head" style="margin-top:1.5rem">Ready in Webflow</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-head" style="margin-top:1.5rem">Published</div>', unsafe_allow_html=True)
         if published:
             for kw in published:
                 render_kw_card(kw, "View →", f"open_{kw['slug']}")
         else:
             st.markdown(
                 '<p style="font-size:0.82rem;color:#9990A4;margin:0 0 1.25rem">'
-                + ("No matches." if search else "Nothing ready in Webflow yet.")
+                + ("No matches." if search else "Nothing published yet.")
                 + "</p>",
                 unsafe_allow_html=True,
             )
