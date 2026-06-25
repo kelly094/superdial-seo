@@ -1,6 +1,7 @@
 import math
+from unittest.mock import patch
 from utils import slugify
-from keyword_research import filter_by_relevance, _initial_score
+from keyword_research import filter_by_relevance, _initial_score, serp_fit_modifier
 
 
 def _kw(keyword="prior auth software", volume=500, difficulty=30, cpc=10.0, intent="commercial"):
@@ -25,7 +26,8 @@ def test_lower_difficulty_scores_higher(db):
 
 def test_cpc_zero_still_scores(db):
     score = _initial_score(_kw(cpc=0))
-    assert score == 0.0  # log(1+0)=0 — zero CPC produces zero score
+    # (1 + log1p(0)) = 1.0 — zero CPC still contributes a floor multiplier
+    assert score > 0.0
 
 
 def test_cpc_log_scaled(db):
@@ -61,3 +63,46 @@ def test_high_and_medium_both_pass():
     ]
     result = filter_by_relevance(keywords)
     assert len(result) == 2
+
+
+def test_cannibalization_reduces_score(db):
+    # Publish a keyword whose slug overlaps with the candidate's tokens
+    db.select_keyword("prior auth automation", "prior-auth-automation", 100.0, 500, 30, 5.0, "commercial")
+    db.mark_drafted("prior auth automation")
+    db.mark_approved("prior auth automation")
+    db.mark_published("prior auth automation", "webflow-id-test")
+
+    # Candidate shares "prior" and "auth" with published slug tokens
+    overlapping = _initial_score(_kw(keyword="prior auth software"))
+    # Candidate shares no tokens
+    non_overlapping = _initial_score(_kw(keyword="denial management workflow"))
+
+    assert overlapping < non_overlapping
+
+
+def test_serp_fit_directory_heavy_returns_penalty():
+    mock_resp = {"tasks": [{"result": [{"items": [
+        {"type": "organic", "domain": "g2.com"},
+        {"type": "organic", "domain": "g2.com"},
+        {"type": "organic", "domain": "g2.com"},
+        {"type": "organic", "domain": "g2.com"},
+        {"type": "organic", "domain": "superdial.com"},
+    ]}]}]}
+    with patch("keyword_research.requests.post") as mock_post:
+        mock_post.return_value.json.return_value = mock_resp
+        mock_post.return_value.raise_for_status = lambda: None
+        result = serp_fit_modifier("prior auth automation")
+    assert result == 0.7  # 4/5 = 80% directory domains >= 0.4 threshold
+
+
+def test_serp_fit_neutral_returns_boost():
+    mock_resp = {"tasks": [{"result": [{"items": [
+        {"type": "organic", "domain": "superdial.com"},
+        {"type": "organic", "domain": "healthcareit.com"},
+        {"type": "organic", "domain": "rcmadvisor.com"},
+    ]}]}]}
+    with patch("keyword_research.requests.post") as mock_post:
+        mock_post.return_value.json.return_value = mock_resp
+        mock_post.return_value.raise_for_status = lambda: None
+        result = serp_fit_modifier("prior auth automation")
+    assert result == 1.2  # No directory/forum domains -> boost

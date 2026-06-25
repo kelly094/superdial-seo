@@ -156,7 +156,7 @@ def _initial_score(kw: dict) -> float:
         * (1 - kw["difficulty"] / 100)
         * intent_mod
         * (1 - min(cannibalization * 0.8, 0.8))
-        * math.log1p(kw["cpc"])
+        * (1 + math.log1p(kw["cpc"]))
     )
 
 

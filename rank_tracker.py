@@ -68,6 +68,7 @@ def fetch_page_metrics(service, slugs: list) -> list:
         page_url = row["keys"][0].rstrip("/")
         slug = page_url.split("/")[-1]
         if slug not in slug_set:
+            print(f"  WARN: GSC page '{page_url}' doesn't match any known slug — skipping")
             continue
         rows.append({
             "slug": slug,

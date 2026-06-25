@@ -15,7 +15,6 @@ Usage:
 import argparse
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -175,13 +174,9 @@ def step_track(dry_run=False):
             print("  No GSC data returned (articles may not be indexed yet).")
 
     except Exception as e:
-        msg = f"GSC tracking failed: {e}"
-        print(f"  WARN: {msg}")
+        print(f"  WARN: GSC tracking failed: {e}")
         metrics["gsc_warnings"] += 1
-        state.save_run_log(
-            run_id=_now(), started_at=_now(), finished_at=_now(),
-            metrics={**metrics, "gsc_error": str(e)},
-        )
+        metrics["gsc_error"] = str(e)
 
     return metrics
 

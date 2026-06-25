@@ -73,6 +73,7 @@ def test_dry_run_writes_nothing(tmp_path, monkeypatch):
         [sys.executable, str(Path(__file__).parent.parent / "pipeline.py"), "--step", "keywords", "--dry-run"],
         capture_output=True, text=True, cwd=str(tmp_path),
     )
+    assert result.returncode == 0, f"pipeline.py exited non-zero: {result.stderr}"
     assert (tmp_path / "data" / "pipeline.db").exists() is False or \
            st.get_retryable("generate") == []
 
