@@ -82,3 +82,12 @@ def test_publish_skips_drafted_keywords(db, tmp_path, monkeypatch):
     db.mark_drafted("prior auth automation")
     # publish step should find 0 items (drafted ≠ approved)
     assert db.get_retryable("publish") == []
+
+def test_rank_history_appends_not_overwrites(db):
+    row = {"slug": "prior-auth-automation", "date": "2026-06-24",
+           "position": 14.2, "impressions": 43, "clicks": 2, "source": "page", "query": None}
+    db.append_rank_history([row])
+    db.append_rank_history([{**row, "date": "2026-07-01", "position": 12.1}])
+    with db.get_db() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM rank_history").fetchone()[0]
+    assert count == 2
