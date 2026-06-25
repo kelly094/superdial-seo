@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+import publish_webflow
 import state
 
 state.init_db()
@@ -465,7 +466,15 @@ if st.session_state.page == "queue":
                     st.session_state.edit_draft_text = ""
                     st.rerun()
         else:
-            cols = [1, 3, 1.5, 1.5] if can_approve else ([1, 4.5, 1.5] if can_edit else [1, 7])
+            can_publish = art_state == "approved"
+            if can_approve:
+                cols = [1, 3, 1.5, 1.5]
+            elif can_publish:
+                cols = [1, 2.5, 1.5, 2]
+            elif can_edit:
+                cols = [1, 4.5, 1.5]
+            else:
+                cols = [1, 7]
             btn_cols = st.columns(cols)
             with btn_cols[0]:
                 if st.button("← Back", key="back_btn"):
@@ -485,6 +494,17 @@ if st.session_state.page == "queue":
                         st.session_state.reviewing_slug = None
                         st.session_state.active_qa_warning = None
                         st.rerun()
+            if can_publish:
+                with btn_cols[3]:
+                    if st.button("Ready in Webflow", type="primary", use_container_width=True, key="publish_btn"):
+                        try:
+                            webflow_id = publish_webflow.publish_draft_and_return_id(draft_path)
+                            state.mark_published(kw["keyword"], webflow_item_id=webflow_id)
+                            st.session_state.reviewing_slug = None
+                            st.session_state.active_qa_warning = None
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Webflow publish failed: {e}")
 
         st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 

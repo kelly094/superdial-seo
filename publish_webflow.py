@@ -22,9 +22,9 @@ load_dotenv()
 WEBFLOW_API_TOKEN = os.getenv("WEBFLOW_API_TOKEN")
 WEBFLOW_COLLECTION_ID = os.getenv("WEBFLOW_COLLECTION_ID")
 
-if not WEBFLOW_API_TOKEN:
+if not WEBFLOW_API_TOKEN and __name__ == "__main__":
     sys.exit("Error: WEBFLOW_API_TOKEN not set in .env")
-if not WEBFLOW_COLLECTION_ID:
+if not WEBFLOW_COLLECTION_ID and __name__ == "__main__":
     sys.exit("Error: WEBFLOW_COLLECTION_ID not set in .env")
 
 BASE_URL = "https://api.webflow.com/v2"
