@@ -115,8 +115,15 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     margin-bottom: 8px;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {
-    padding: 13px 16px !important;
+    padding: 10px 16px !important;
     gap: 0 !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMarkdownContainer"] p {
+    margin: 0 !important;
+    line-height: 1.4 !important;
 }
 
 /* Keyword name */
