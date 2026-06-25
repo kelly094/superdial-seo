@@ -73,6 +73,8 @@ def detect_content_format(keyword: str) -> str:
         return "problem_solution"
     if any(p in kw for p in ("cost", "pricing", "roi", "savings", "reduce")):
         return "roi_analysis"
+    if any(p in kw for p in ("software", " tool", " platform", " solution", " system")):
+        return "comparison"
     # commercial/transactional default
     return "buyers_guide"
 
