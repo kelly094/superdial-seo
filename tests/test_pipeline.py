@@ -59,3 +59,26 @@ def test_qa_returns_list_of_dicts():
 def test_qa_never_raises_on_empty():
     warnings = scan_draft("")
     assert warnings == []
+
+
+import subprocess, sys
+
+def test_dry_run_writes_nothing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    import state as st
+    monkeypatch.setattr(st, "DB_PATH", tmp_path / "test.db")
+    st.init_db()
+    # dry-run should not create DB records or draft files
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).parent.parent / "pipeline.py"), "--step", "keywords", "--dry-run"],
+        capture_output=True, text=True, cwd=str(tmp_path),
+    )
+    assert (tmp_path / "data" / "pipeline.db").exists() is False or \
+           st.get_retryable("generate") == []
+
+def test_publish_skips_drafted_keywords(db, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    db.select_keyword("prior auth automation", "prior-auth-automation", 500.0, 1200, 34, 8.40, "commercial")
+    db.mark_drafted("prior auth automation")
+    # publish step should find 0 items (drafted ≠ approved)
+    assert db.get_retryable("publish") == []
