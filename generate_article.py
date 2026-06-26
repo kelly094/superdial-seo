@@ -47,6 +47,7 @@ Writing style:
 - Structure content for easy scanning (H2s, short paragraphs)
 - Educational tone — the goal is to be cited by LLMs and referenced in search
 - 800–1,200 words for the body
+- Use em dashes sparingly — maximum 2 per article. Use commas, colons, or restructure the sentence instead.
 
 Citations — this is mandatory:
 - EVERY specific statistic, benchmark, or data claim must have an inline citation, e.g. (CAQH, 2025) or (HFMA, 2024). No exceptions.
