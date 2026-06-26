@@ -47,9 +47,25 @@ FIELD_PUB_DATE   = "publication-date"
 # ────────────────────────────────────────────────────────────────────────────
 
 
+def _lists_to_paragraphs(html: str) -> str:
+    """Webflow strips <ul>/<ol>/<li> tags. Convert them to <p> tags instead."""
+    def replace_ul(m):
+        items = re.findall(r"<li>(.*?)</li>", m.group(1), re.DOTALL)
+        return "\n".join(f"<p>• {item.strip()}</p>" for item in items) + "\n"
+
+    def replace_ol(m):
+        items = re.findall(r"<li>(.*?)</li>", m.group(1), re.DOTALL)
+        return "\n".join(f"<p>{i + 1}. {item.strip()}</p>" for i, item in enumerate(items)) + "\n"
+
+    html = re.sub(r"<ul>\n?(.*?)\n?</ul>", replace_ul, html, flags=re.DOTALL)
+    html = re.sub(r"<ol>\n?(.*?)\n?</ol>", replace_ol, html, flags=re.DOTALL)
+    return html
+
+
 def to_html(markdown_text: str) -> str:
     """Convert markdown to HTML for Webflow rich text fields."""
-    return md_lib.markdown(markdown_text, extensions=["tables", "fenced_code", "nl2br"])
+    html = md_lib.markdown(markdown_text, extensions=["tables", "fenced_code"])
+    return _lists_to_paragraphs(html)
 
 
 def parse_frontmatter(path):
