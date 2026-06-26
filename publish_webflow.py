@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import markdown as md_lib
 import requests
 from dotenv import load_dotenv
 
@@ -44,6 +45,11 @@ FIELD_META_TITLE = "meta-title-2"      # meta title (required)
 FIELD_ALT        = "blog-image-alt-text"
 FIELD_PUB_DATE   = "publication-date"
 # ────────────────────────────────────────────────────────────────────────────
+
+
+def to_html(markdown_text: str) -> str:
+    """Convert markdown to HTML for Webflow rich text fields."""
+    return md_lib.markdown(markdown_text, extensions=["tables", "fenced_code", "nl2br"])
 
 
 def parse_frontmatter(path):
@@ -92,7 +98,7 @@ def publish_draft(path, dry_run=False):
     field_data = {
         FIELD_NAME:       title,
         FIELD_SLUG:       slug,
-        FIELD_BODY:       body,
+        FIELD_BODY:       to_html(body),
         FIELD_META_TITLE: title,
         FIELD_PUB_DATE:   pub_date,
     }
@@ -173,7 +179,7 @@ def publish_draft_and_return_id(path) -> str:
     field_data = {
         FIELD_NAME:       title,
         FIELD_SLUG:       slug,
-        FIELD_BODY:       body,
+        FIELD_BODY:       to_html(body),
         FIELD_META_TITLE: title,
         FIELD_PUB_DATE:   pub_date,
     }
@@ -189,3 +195,30 @@ def publish_draft_and_return_id(path) -> str:
     if r.status_code in (200, 201, 202):
         return r.json().get("id", "")
     raise RuntimeError(f"Webflow error {r.status_code}: {r.text}")
+
+
+def update_item(item_id: str, path) -> None:
+    """Patch an existing Webflow item with the latest draft content (as HTML)."""
+    fm, body = parse_frontmatter(path)
+    title = fm.get("title", "")
+    meta  = fm.get("meta_description", "")
+    alt   = fm.get("alt_text", "")
+
+    field_data = {
+        FIELD_NAME:       title,
+        FIELD_BODY:       to_html(body),
+        FIELD_META_TITLE: title,
+    }
+    if meta:
+        field_data[FIELD_META] = meta
+    if alt:
+        field_data[FIELD_ALT] = alt
+
+    payload = {"fieldData": field_data}
+    url = f"{BASE_URL}/collections/{WEBFLOW_COLLECTION_ID}/items/{item_id}"
+    r = requests.patch(url, headers=HEADERS, json=payload)
+
+    if r.status_code in (200, 202):
+        print(f"Updated item {item_id} with HTML formatting.")
+    else:
+        raise RuntimeError(f"Webflow error {r.status_code}: {r.text}")
